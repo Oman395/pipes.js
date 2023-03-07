@@ -1,4 +1,6 @@
 # pipes.js
+![2023-03-07T11:34:14,062917750-05:00](https://user-images.githubusercontent.com/77183348/223487552-9165e4ce-f142-457d-8cde-180e285723e0.png)
+
 Pipes.js is a side project of mine based on the (probably abandoned) [pipes.sh](https://github.com/pipeseroni/pipes.sh), written in node.js (because it's the only language I'm good at). Somehow, it's actually significantly faster than the original, because of abundant use of promises-- I've managed to get it to render 1000 concurrent pipes at a very high FPS with no real issues (other than 100% CPU usage).
 ## CLI Options
 There really isn't much here
