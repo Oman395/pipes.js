@@ -1,0 +1,18 @@
+{
+  "minimumDistanceBeforeTurn": 1,
+  "randomThreshold": 0.01,
+  "randomMode": 0,
+  "FPS": 75,
+  "colors": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "unstretchVertical": true,
+  "unstretchFactor": 5,
+  "maximumCharacters": -1,
+  "numberOfHeads": 1
+}
