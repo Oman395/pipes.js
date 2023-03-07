@@ -68,3 +68,7 @@ creator(s) a pint.
 Myself, obviously.
 [Pipeseroni](https://github.com/pipeseroni), for making the original.
 [Catppuccin](https://github.com/catppuccin), for being an amazing color scheme that you should use (totally not biased at all).
+## TODO
+- [ ] Add option in configuration file to change box drawing characters
+- [ ] Add more default color schemes
+- [ ] Add catppuccin specifically with an RGB colorscheme for anyone who doesn't use it
