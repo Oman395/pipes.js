@@ -2,6 +2,8 @@
 
 const fs = require("fs");
 
+// Global variables
+
 const CHARS = {
   ul: "╭",
   ur: "╮",
@@ -10,66 +12,10 @@ const CHARS = {
   ho: "─",
   ve: "│",
 };
+let charCount;
+let delay = false; // If this is set to true, program will wait a moment before starting so the user has time to read warnings
 
-// Get command line arguments. There's libraries to do this, but I want this to work as a standalone program, so I just wrote
-// this scuffed version.
-
-let args = process.argv.slice(2, process.argv.length);
-let cfgPath = "~/.config/pipes.js/config.json";
-for (let i = 0; i < args.length; i++) {
-  let arg = args[i];
-  if (arg[0] === "-") {
-    switch (arg.slice(1, arg.length)) {
-      case "-help":
-        console.log(
-          `pipes.js help
-==> Arguments
-  --config,-c: Specify configuration path
-
-  --help,-h: Display this page
-
-==> Configuration
-  minimumDistanceBeforeTurn: Number of characters before being allowed to turn.
-
-  randomThreshold: Threshold for Math.random() to be under. Will increase exponentially if random mode is exponential.
-
-  randomMode: 0 = Exponential, RAND_AMOUNT ** x, 1 = Static.
-
-  unstretchVertical: Apply fix for vertical lines being taller than horizontal lines are long.
-
-  unstretchFactor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.
-
-  maximumCharacters: Maximum characters displayed before clearing screen. Infinity if -1.
-
-  numberOfHeads: Number of distinct pipes to draw at once.`
-        );
-        process.exit(1);
-      case "-config":
-        cfgPath = args[i + 1];
-        i++;
-        continue;
-      case "h":
-        process.exit(0);
-      case "c":
-        cfgPath = args[i + 1];
-        i++;
-        continue;
-      default:
-        console.error(
-          "Unknown argument (type -h for help)! Attempted to read: " + arg
-        );
-        process.exit(1);
-    }
-  } else {
-    console.error(
-      "Unknown argument (type -h for help)! Attempted to read: " + arg
-    );
-    process.exit(1);
-  }
-}
-
-// Default values
-
+// Options, set to default values
 // Number of characters before being allowed to turn
 let MIN_DIST_TURN = 1;
 // Threshold for Math.random() to be under, if the random mode is exponential then this will increase exponentially
@@ -89,25 +35,153 @@ let UNSTRETCH_FACTOR = 5;
 let MAX_CHARS = 20000;
 // Number of paths to run concurrently
 let PATH_COUNT = 1;
-let delay = false;
-if (fs.existsSync(cfgPath)) {
-  try {
-    let opts = JSON.parse(fs.readFileSync(cfgPath).toString());
-    MIN_DIST_TURN = opts.minimumDistanceBeforeTurn ?? MIN_DIST_TURN;
-    RAND_AMOUNT = opts.randomThreshold ?? RAND_AMOUNT;
-    RAND_MODE = opts.randomMode ?? RAND_MODE;
-    FPS = opts.FPS ?? FPS;
-    COLORS = opts.colors ?? COLORS;
-    UNSTRETCH_VERTICAL = opts.unstretchVertical ?? UNSTRETCH_VERTICAL;
-    UNSTRETCH_FACTOR = opts.unstretchFactor ?? UNSTRETCH_FACTOR;
-    MAX_CHARS =
-      (opts.maximumCharacters === -1 ? Infinity : opts.maximumCharacters) ??
-      MAX_CHARS;
-    PATH_COUNT = opts.numberOfHeads ?? PATH_COUNT;
-  } catch (e) {
-    console.error("Invalid configuration file! Error:", e);
+
+// Get command line arguments. There's libraries to do this, but I want this to work as a standalone program, so I just wrote
+// this scuffed version.
+
+function setVal(value, orig, min, max, name) {
+  if (isNaN(value)) {
+    console.error(`Value for ${name} is Not a Number: ${orig}`);
     process.exit(1);
   }
+  if (value < min || value > max) {
+    console.error(
+      `Invalid value for ${name}: expected ${min} to ${max}, got ${value}`
+    );
+    process.exit(1);
+  }
+}
+
+let args = process.argv.slice(2, process.argv.length);
+let argString = args.join("\n");
+/* "Quick" explanation of the regex
+ * Essentially, I want to be able to take in arguments like "-m0C20000H4" and parse them into -m 0 -C 20000 -H 4
+ * The first step has three seperate groups: word, char, and number. The word group is the first, "((?<=^--).+)". Essentially, this just matches the text
+ * in a line that starts with "--", not including the first --.
+ * Next, we remove any dashes from the matches with |-|. This is an or operator, so essentially any dashes will capture early, but not going into any group,
+ * and thus not be included.
+ * We can then finish the last two steps. Char, "([a-zA-Z])", just matches any single character from a-Z. Number, "([0-9\.]*[0-9])", is a bit more complicated:
+ * Essentially, it first matches any number of numbers or decimals, then a single number. We do this so that if the user passes in something like .5, it matches
+ *, but file.xyz does not. This gave me a mild headache trying to debug.
+ * The next step is substitution: $2 is replaced with the char group, $3 is replaced with the word group, and $1 is replaced with the number group.
+ * If any of those groups are empty, the newlines and dashes will still be added, so we will need to clean them up. The order they are in is somewhat important,
+ * but I've forgotten exactly why I made it that order specifically.
+ *
+ * Now we need to clean up the resulting string, which is relatively simple. The first replace literally just removes any lines that are either empty,
+ * or are nothing but dashes. The second is a bit more complicated-- essentially, it matches any line which has only a single character in it, and prepends a
+ * dash to it.
+ *
+ * TODO: Does not work for something like -d4gb, but there aren't enough arguments that don't take a value for this to matter.
+ *
+ * Now that I think about it, it might have been more consise to take the more complicated non-regex route, because of this wall of text
+ * Oh well, I had fun writing the regex :)
+ */
+argString = argString.replaceAll(
+  /((?<=^--).+)|-|([a-zA-Z])([0-9\.]*[0-9])/gm,
+  "$2\n$3\n--$1\n"
+);
+argString = argString.replaceAll(/^-*\n/gm, "");
+argString = argString.replaceAll(/^([a-zA-Z])(?=\n|$)/gm, "-$1");
+args = argString.split("\n");
+let cfgPath = "~/.config/pipes.js/config.json";
+for (let i = 0; i < args.length; i++) {
+  let arg = args[i];
+  if (arg[0] !== "-") {
+    console.error("Unknown argument (type -h for help): " + arg);
+    process.exit(1);
+  }
+  switch (arg.slice(1, arg.length)) {
+    case "-help":
+    case "h":
+      console.log(
+        `pipes.js help
+==> Arguments
+  --config,-c: Specify configuration path
+
+  --help,-h: Display this page
+
+  --max-char,-C: Maximum characters displayed before clearing screen. Infinity if -1.
+
+  --num-head,-H: Number of distinct pipes to draw at once.
+
+  --random-mode,-m: 0 = Exponential, RAND_AMOUNT ** x, 1 = Static.
+
+  --min-dist: Number of characters before being allowed to turn.
+
+  --random-threshold: Threshold for Math.random() to be under. Will increase exponentially if random mode is exponential.
+
+  --unstretch-vert: Apply fix for vertical lines being taller than horizontal lines are long.
+
+  --unstretch-factor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.`
+      );
+      process.exit(1);
+    case "-config":
+    case "c":
+      cfgPath = args[i + 1];
+      i++;
+      break;
+    case "-max-char":
+    case "C":
+      MAX_CHARS = parseInt(args[i + 1]);
+      setVal(MAX_CHARS, args[i + 1], -1, Infinity, "maximum characters");
+      i++;
+      break;
+    case "-num-head":
+    case "H":
+      PATH_COUNT = parseInt(args[i + 1]);
+      setVal(PATH_COUNT, args[i + 1], 0, Infinity, "number of heads");
+      i++;
+      break;
+    case "-random-mode":
+    case "m":
+      RAND_MODE = parseInt(args[i + 1]);
+      setVal(RAND_MODE, args[i + 1], 0, 1, "random mode");
+      i++;
+      break;
+    case "-min-dist":
+      MIN_DIST_TURN = parseInt(args[i + 1]);
+      setVal(MIN_DIST_TURN, args[i + 1], 0, Infinity, "minimum distance");
+      i++;
+      break;
+    case "-random-threshold":
+      RAND_AMOUNT = parseFloat(args[i + 1]);
+      setVal(RAND_AMOUNT, args[i + 1], 0, 1, "random amount");
+      i++;
+      break;
+    case "-unstretch-vert":
+      UNSTRETCH_VERTICAL = true;
+      break;
+    case "-unstretch-factor":
+      UNSTRETCH_FACTOR = parseFloat(args[i + 1]);
+      setVal(UNSTRETCH_FACTOR, args[i + 1], 0, Infinity, "Unstretch factor");
+      i++;
+      break;
+    default:
+      console.error("Unknown argument (type -h for help): " + arg);
+      process.exit(1);
+  }
+}
+
+if (fs.existsSync(cfgPath)) {
+  let opts;
+  try {
+    opts = JSON.parse(fs.readFileSync(cfgPath).toString());
+  } catch {
+    console.error(`Warning: invalid json in ${cfgPath}, resorting to default`);
+    opts = {};
+    delay = true;
+  }
+  MIN_DIST_TURN = opts.minimumDistanceBeforeTurn ?? MIN_DIST_TURN;
+  RAND_AMOUNT = opts.randomThreshold ?? RAND_AMOUNT;
+  RAND_MODE = opts.randomMode ?? RAND_MODE;
+  FPS = opts.FPS ?? FPS;
+  COLORS = opts.colors ?? COLORS;
+  UNSTRETCH_VERTICAL = opts.unstretchVertical ?? UNSTRETCH_VERTICAL;
+  UNSTRETCH_FACTOR = opts.unstretchFactor ?? UNSTRETCH_FACTOR;
+  MAX_CHARS =
+    (opts.maximumCharacters === -1 ? Infinity : opts.maximumCharacters) ??
+    MAX_CHARS;
+  PATH_COUNT = opts.numberOfHeads ?? PATH_COUNT;
 } else {
   console.error(`Warning: ${cfgPath} not found, resorting to defaults`);
   delay = true;
@@ -119,28 +193,28 @@ function cursorTo(x, y) {
 
 function writeChar(prevDir, cDir, cPos) {
   cursorTo(cPos[0], cPos[1]);
-  if (prevDir !== cDir) {
-    switch (cDir) {
-      case 0:
-        if (prevDir === 3) process.stdout.write(CHARS.bl); // Left to up
-        else process.stdout.write(CHARS.br); // Right to up
-        break;
-      case 1:
-        process.stdout.write(prevDir < cDir ? CHARS.ul : CHARS.bl); // Up to right : Down to right
-        break;
-      case 2:
-        process.stdout.write(prevDir < cDir ? CHARS.ur : CHARS.ul); // Right to down : Left to down
-        break;
-      case 3:
-        if (prevDir === 0) process.stdout.write(CHARS.ur); // Up to left
-        else process.stdout.write(CHARS.br); // Down to left
-        break;
-      default:
-        throw new Error("Invalid Direction! Attempted to use: " + cDir);
-    }
+  if (prevDir === cDir) {
+    process.stdout.write(cDir % 2 === 0 ? CHARS.ve : CHARS.ho);
     return;
   }
-  process.stdout.write(cDir % 2 === 0 ? CHARS.ve : CHARS.ho);
+  switch (cDir) {
+    case 0:
+      if (prevDir === 3) process.stdout.write(CHARS.bl); // Left to up
+      else process.stdout.write(CHARS.br); // Right to up
+      break;
+    case 1:
+      process.stdout.write(prevDir < cDir ? CHARS.ul : CHARS.bl); // Up to right : Down to right
+      break;
+    case 2:
+      process.stdout.write(prevDir < cDir ? CHARS.ur : CHARS.ul); // Right to down : Left to down
+      break;
+    case 3:
+      if (prevDir === 0) process.stdout.write(CHARS.ur); // Up to left
+      else process.stdout.write(CHARS.br); // Down to left
+      break;
+    default:
+      throw new Error("Invalid Direction! Attempted to use: " + cDir);
+  }
 }
 
 function getNextDir(step, dir) {
@@ -156,11 +230,6 @@ function getNextDir(step, dir) {
   if (nd < 0) nd = 3;
   if (nd > 3) nd = 0;
   return nd;
-}
-
-function getRandColor() {
-  let rand = Math.floor(Math.random() * COLORS.length);
-  return COLORS[rand];
 }
 
 function applyDir(pos, dir) {
@@ -189,7 +258,11 @@ function applyDir(pos, dir) {
   return np;
 }
 
-let charCount = 0;
+function getRandColor() {
+  let rand = Math.floor(Math.random() * COLORS.length);
+  return COLORS[rand];
+}
+
 function tick(cDir, cPos, cStep, color) {
   return new Promise((res) => {
     if (charCount >= MAX_CHARS)
@@ -213,6 +286,7 @@ function start() {
   process.stdout.write("\x1b[2J\x1b[?25l"); // Clear screen and hide cursor
   // tick() returns a promise, so we can just loop the number of paths we want and call them and they will all run asynchronously
   // in parallel
+  charCount = 0;
   for (let i = 0; i < PATH_COUNT; i++) {
     tick(
       Math.floor(Math.random() * 4),

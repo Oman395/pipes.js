@@ -3,9 +3,23 @@
 
 Pipes.js is a side project of mine based on the (probably abandoned) [pipes.sh](https://github.com/pipeseroni/pipes.sh), written in node.js (because it's the only language I'm good at). Somehow, it's actually significantly faster than the original, because of abundant use of promises-- I've managed to get it to render 1000 concurrent pipes at a very high FPS with no real issues (other than 100% CPU usage).
 ## CLI Options
-There really isn't much here
-- -\-config/-c: Specify path to config file. Defaults to ~/.config/pipes.js/config.json.
-- -\-help/-h: Show help page
+- --config,-c: Specify configuration path
+
+- --help,-h: Display help page
+
+- --max-char,-C: Maximum characters displayed before clearing screen. Infinity if -1.
+
+- --num-head,-H: Number of distinct pipes to draw at once.
+
+- --random-mode,-m: 0 = Exponential, RAND_AMOUNT ** x, 1 = Static.
+
+- --min-dist: Number of characters before being allowed to turn.
+
+- --random-threshold: Threshold for Math.random() to be under. Will increase exponentially if random mode is exponential.
+
+- --unstretch-vert: Apply fix for vertical lines being taller than horizontal lines are long.
+
+- --unstretch-factor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.
 ## Configuration options
 - minimumDistanceBeforeTurn: Number of characters before being allowed to turn.
 - randomThreshold: Threshold for Math.random() to be under. Will increase exponentially if random mode is exponential.
