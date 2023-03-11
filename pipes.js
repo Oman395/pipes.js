@@ -86,6 +86,7 @@ args = argString.split("\n");
 let cfgPath = "~/.config/pipes.js/config.json";
 for (let i = 0; i < args.length; i++) {
   let arg = args[i];
+  if (process.argv.length < 3) break;
   if (arg[0] !== "-") {
     console.error("Unknown argument (type -h for help): " + arg);
     process.exit(1);
