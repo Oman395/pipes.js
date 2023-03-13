@@ -20,6 +20,8 @@ Pipes.js is a side project of mine based on the (probably abandoned) [pipes.sh](
 - --unstretch-vert: Apply fix for vertical lines being taller than horizontal lines are long.
 
 - --unstretch-factor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.
+
+- --verbose: Verbose logging.
 ## Configuration options
 - minimumDistanceBeforeTurn: Number of characters before being allowed to turn.
 - randomThreshold: Threshold for Math.random() to be under. Will increase exponentially if random mode is exponential.
@@ -28,6 +30,7 @@ Pipes.js is a side project of mine based on the (probably abandoned) [pipes.sh](
 - unstretchFactor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.
 - maximumCharacters: Maximum characters displayed before clearing screen. Infinity if -1.
 - numberOfHeads: Number of distinct pipes to draw at once.
+- characters: Characters to use. Keys are upperLeft, upperRight, bottomLeft, bottomRight, horizontal, vertical.
 ### Example configuration file
 ```json
 {
@@ -46,7 +49,15 @@ Pipes.js is a side project of mine based on the (probably abandoned) [pipes.sh](
   "unstretchVertical": true,
   "unstretchFactor": 5,
   "maximumCharacters": -1,
-  "numberOfHeads": 1
+  "numberOfHeads": 1,
+  "characters": {
+    "upperLeft": "╭",
+    "upperRight": "╮",
+    "bottomRight": "╯",
+    "bottomLeft": "╰",
+    "horizontal": "─",
+    "vertical": "│"
+  }
 }
 ```
 ## Installation

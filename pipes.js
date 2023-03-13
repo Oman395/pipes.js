@@ -4,7 +4,7 @@ const fs = require("fs");
 
 // Global variables
 
-const CHARS = {
+let CHARS = {
   ul: "╭",
   ur: "╮",
   br: "╯",
@@ -84,10 +84,14 @@ argString = argString.replaceAll(/^-*\n/gm, "");
 argString = argString.replaceAll(/^([a-zA-Z])(?=\n|$)/gm, "-$1");
 args = argString.split("\n");
 let cfgPath = "~/.config/pipes.js/config.json";
+let verbose = false;
+function vlog(string) {
+  if (verbose) console.log(string);
+}
 for (let i = 0; i < args.length; i++) {
   let arg = args[i];
   if (process.argv.length < 3) break;
-  if (arg[0] !== "-") {
+  if (arg[0] !== undefined && arg[0] !== "-") {
     console.error("Unknown argument (type -h for help): " + arg);
     process.exit(1);
   }
@@ -113,7 +117,9 @@ for (let i = 0; i < args.length; i++) {
 
   --unstretch-vert: Apply fix for vertical lines being taller than horizontal lines are long.
 
-  --unstretch-factor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.`
+  --unstretch-factor: Factor to increase probability that the vertical line goes horizontal to. Ignored if unstretchVertical is true.
+
+  --verbose: Verbose logging.`
       );
       process.exit(1);
     case "-config":
@@ -157,21 +163,76 @@ for (let i = 0; i < args.length; i++) {
       setVal(UNSTRETCH_FACTOR, args[i + 1], 0, Infinity, "Unstretch factor");
       i++;
       break;
+    case "-verbose":
+      verbose = true;
+      delay = true;
+      vlog("Verbose mode enabled!");
+      break;
+    case "": // Fix weird shit happening
+      break;
     default:
       console.error("Unknown argument (type -h for help): " + arg);
       process.exit(1);
   }
 }
 
+function validateOptions(opts) {
+  Object.keys(opts).forEach((option) => {
+    if (
+      [
+        "minimumDistanceBeforeTurn",
+        "randomThreshold",
+        "randomMode",
+        "FPS",
+        "colors",
+        "unstretchVertical",
+        "unstretchFactor",
+        "maximumCharacters",
+        "numberOfHeads",
+      ].includes(option)
+    )
+      return;
+    vlog("Invalid option or option is characters");
+    if (option === "characters") {
+      let chars = opts[option];
+      vlog("Checking characters...");
+      Object.keys(chars).forEach((key) => {
+        if (
+          [
+            "upperLeft",
+            "upperRight",
+            "bottomLeft",
+            "bottomRight",
+            "horizontal",
+            "vertical",
+          ].includes(key)
+        )
+          return;
+        console.error(
+          `Invalid key set: expected upperLeft, upperRight, bottomLeft, bottomRight, horizontal, or vertical, got ${key}`
+        );
+        process.exit(1);
+      });
+      return;
+    }
+    console.error(`Invalid option in configuration file: ${option}`);
+    process.exit(1);
+  });
+}
+
 if (fs.existsSync(cfgPath)) {
+  vlog("Config path exists, path is " + cfgPath);
   let opts;
   try {
     opts = JSON.parse(fs.readFileSync(cfgPath).toString());
-  } catch {
+  } catch (e) {
     console.error(`Warning: invalid json in ${cfgPath}, resorting to default`);
+    vlog(`Error from fs: ${e}`);
     opts = {};
     delay = true;
   }
+  vlog(`Options: ${JSON.stringify(opts)}`);
+  validateOptions(opts);
   MIN_DIST_TURN = opts.minimumDistanceBeforeTurn ?? MIN_DIST_TURN;
   RAND_AMOUNT = opts.randomThreshold ?? RAND_AMOUNT;
   RAND_MODE = opts.randomMode ?? RAND_MODE;
@@ -183,6 +244,31 @@ if (fs.existsSync(cfgPath)) {
     (opts.maximumCharacters === -1 ? Infinity : opts.maximumCharacters) ??
     MAX_CHARS;
   PATH_COUNT = opts.numberOfHeads ?? PATH_COUNT;
+  if (opts.characters !== undefined) {
+    CHARS.ul = opts.characters.upperLeft ?? CHARS.ul;
+    CHARS.ur = opts.characters.upperRight ?? CHARS.ur;
+    CHARS.bl = opts.characters.bottomLeft ?? CHARS.bl;
+    CHARS.br = opts.characters.bottomRight ?? CHARS.br;
+    CHARS.ho = opts.characters.horizontal ?? CHARS.ho;
+    CHARS.ve = opts.characters.vertical ?? CHARS.ve;
+  }
+  vlog(`Final options, in variables:
+MIN_DIST_TURN: ${MIN_DIST_TURN}
+RAND_AMOUNT: ${RAND_AMOUNT}
+RAND_MODE: ${RAND_MODE}
+FPS: ${FPS}
+COLORS: ${COLORS}
+UNSTRETCH_VERTICAL: ${UNSTRETCH_VERTICAL}
+UNSTRETCH_FACTOR: ${UNSTRETCH_FACTOR}
+MAX_CHARS: ${MAX_CHARS}
+PATH_COUNT: ${PATH_COUNT}
+CHARS:
+  ul: ${CHARS.ul}
+  ur: ${CHARS.ur}
+  bl: ${CHARS.bl}
+  br: ${CHARS.br}
+  ho: ${CHARS.ho}
+  ve: ${CHARS.ve}`);
 } else {
   console.error(`Warning: ${cfgPath} not found, resorting to defaults`);
   delay = true;
@@ -306,5 +392,5 @@ function start() {
   process.on("exit", () => process.stdout.write("\x1b[?25h")); // Show cursor when the process exits
 }
 
-if (delay) setTimeout(start, 500);
+if (delay) setTimeout(start, 1000);
 else start();

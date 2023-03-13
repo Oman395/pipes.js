@@ -14,5 +14,13 @@
   "unstretchVertical": true,
   "unstretchFactor": 5,
   "maximumCharacters": -1,
-  "numberOfHeads": 1
+  "numberOfHeads": 1,
+  "characters": {
+    "upperLeft": "╭",
+    "upperRight": "╮",
+    "bottomRight": "╯",
+    "bottomLeft": "╰",
+    "horizontal": "─",
+    "vertical": "│"
+  }
 }
