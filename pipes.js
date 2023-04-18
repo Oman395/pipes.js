@@ -1,5 +1,6 @@
 #!/bin/node
 
+const { homedir } = require("node:os");
 const fs = require("fs");
 
 // Global variables
@@ -10,7 +11,7 @@ let CHARS = {
   br: "╯",
   bl: "╰",
   ho: "─",
-  ve: "│",
+  ve: "│"
 };
 let charCount;
 let delay = false; // If this is set to true, program will wait a moment before starting so the user has time to read warnings
@@ -77,13 +78,13 @@ let argString = args.join("\n");
  * Oh well, I had fun writing the regex :)
  */
 argString = argString.replaceAll(
-  /((?<=^--).+)|-|([a-zA-Z])([0-9\.]*[0-9])/gm,
+  /((?<=^--).+)|-|([a-zA-Z])([0-9.]*[0-9])/gm,
   "$2\n$3\n--$1\n"
 );
 argString = argString.replaceAll(/^-*\n/gm, "");
 argString = argString.replaceAll(/^([a-zA-Z])(?=\n|$)/gm, "-$1");
 args = argString.split("\n");
-let cfgPath = "~/.config/pipes.js/config.json";
+let cfgPath = homedir() + "/.config/pipes.js/config.json";
 let verbose = false;
 function vlog(string) {
   if (verbose) console.log(string);
@@ -188,7 +189,7 @@ function validateOptions(opts) {
         "unstretchVertical",
         "unstretchFactor",
         "maximumCharacters",
-        "numberOfHeads",
+        "numberOfHeads"
       ].includes(option)
     )
       return;
@@ -204,7 +205,7 @@ function validateOptions(opts) {
             "bottomLeft",
             "bottomRight",
             "horizontal",
-            "vertical",
+            "vertical"
           ].includes(key)
         )
           return;
@@ -379,7 +380,7 @@ function start() {
       Math.floor(Math.random() * 4),
       [
         Math.floor(process.stdout.columns / 2),
-        Math.floor(process.stdout.rows / 2),
+        Math.floor(process.stdout.rows / 2)
       ],
       0,
       getRandColor()
